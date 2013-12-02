@@ -1,5 +1,9 @@
 Revision history for POE-Component-IRC-Plugin-Syntax-Highlight-CSS
 
-0.0101  November 1, 2008
-        First version, released on an unsuspecting world.
+0.0102  2013-12-02
+        - Minor fixes to comply with the specs and Kwalitee game
+        - Added autogeneration of README from POD
+
+0.0101  2008-11-01
+        - First version, released on an unsuspecting world.
 

@@ -1,55 +1,359 @@
-POE-Component-IRC-Plugin-Syntax-Highlight-CSS
+NAME
+    POE::Component::IRC::Plugin::Syntax::Highlight::CSS - IRC plugin to
+    highlight CSS code from URIs
+
+SYNOPSIS
+        use strict;
+        use warnings;
+
+        use POE qw(
+            Component::IRC
+            Component::IRC::Plugin::OutputToPastebin
+            Component::IRC::Plugin::Syntax::Highlight::CSS
+        );
+
+        my $irc = POE::Component::IRC->spawn(
+            nick        => 'CSSHighlighterBot',
+            server      => 'irc.freenode.net',
+            port        => 6667,
+            ircname     => 'CSSHighlighterBot',
+        );
+
+        POE::Session->create(
+            package_states => [
+                main => [ qw(_start irc_001) ],
+            ],
+        );
+
+        $poe_kernel->run;
+
+        sub _start {
+            $irc->yield( register => 'all' );
+
+            $irc->plugin_add(
+                'Paster' =>
+                    POE::Component::IRC::Plugin::OutputToPastebin->new
+            );
+
+            $irc->plugin_add(
+                'CSSHighlighter' =>
+                    POE::Component::IRC::Plugin::Syntax::Highlight::CSS->new
+            );
+
+            $irc->yield( connect => {} );
+        }
+
+        sub irc_001 {
+            $_[KERNEL]->post( $_[SENDER] => join => '#zofbot' );
+        }
+
+        <Zoffix> CSSHighlighterBot, highlight css http://zoffix.com/main.css
+        <CSSHighlighterBot> Zoffix,  see http://erxz.com/pb/13186
+
+        <Zoffix> CSSHighlighterBot, highlight css http://zoffix.com/not_main.css
+        <CSSHighlighterBot> Zoffix, 404 Not Found
 
 IMPORTANT IMPORTANT IMPORTANT
-
-Unless you are going to manually generate responses into IRC from events or you enjoy
-huge spams, you need to use L<POE::Component::IRC::Plugin::OutputToPastebin> along with
-this module.
+    Unless you are going to manually generate responses into IRC from events
+    or you enjoy huge spams, you need to use
+    POE::Component::IRC::Plugin::OutputToPastebin along with this module.
 
 DESCRIPTION
+    This module is a POE::Component::IRC plugin which uses
+    POE::Component::IRC::Plugin for its base. It provides interface to fetch
+    CSS code from URIs, do syntax highlighting using Syntax::Highlight::CSS
+    and pastebin the result. The plugin accepts input from public channel
+    events, "/notice" messages as well as "/msg" (private messages);
+    although that can be configured at will.
 
-This module is a L<POE::Component::IRC> plugin which uses
-L<POE::Component::IRC::Plugin> for its base. It provides interface to
-fetch CSS code from URIs, do syntax highlighting using L<Syntax::Highlight::CSS> and
-pastebin the result.
-The plugin accepts input from public channel events, C</notice> messages as well
-as C</msg> (private messages); although that can be configured at will
+    The plugin is non-blocking.
 
-INSTALLATION
+CONSTRUCTOR
+  "new"
+        # plain and simple
+        $irc->plugin_add(
+            'CSSHighlighter' => POE::Component::IRC::Plugin::Syntax::Highlight::CSS->new
+        );
 
-To install this module, run the following commands:
+        # juicy flavor
+        $irc->plugin_add(
+            'CSSHighlighter' =>
+                POE::Component::IRC::Plugin::Syntax::Highlight::CSS->new(
+                    coloring         => 1,
+                    pastebin_trigger => '[irc_to_pastebin]',
+                    auto             => 1,
+                    response_event   => 'irc_css_highlighter',
+                    banned           => [ qr/aol\.com$/i ],
+                    addressed        => 1,
+                    root             => [ qr/mah.net$/i ],
+                    trigger          => qr/^highlight\s*css\s+(?=\S)/i,
+                    triggers         => {
+                        public  => qr/^highlight\s*css\s+(?=\S)/i,
+                        notice  => qr/^highlight\s*css\s+(?=\S)/i,
+                        privmsg => qr/^highlight\s*css\s+(?=\S)/i,
+                    },
+                    listen_for_input => [ qw(public notice privmsg) ],
+                    eat              => 1,
+                    debug            => 0,
+                )
+        );
 
-	perl Build.PL
-	./Build
-	./Build test
-	./Build install
+    The "new()" method constructs and returns a new
+    "POE::Component::IRC::Plugin::Syntax::Highlight::CSS" object suitable to
+    be fed to POE::Component::IRC's "plugin_add" method. The constructor
+    takes a few arguments, but *all of them are optional*. The possible
+    arguments/values are as follows:
 
-SUPPORT AND DOCUMENTATION
+   "coloring"
+        ->new( coloring => 1, );
 
-After installing, you can find documentation for this module with the
-perldoc command.
+    Optional. If set to a true value the plugin will add some CSS code that
+    can be used for coloring the highlighted CSS code. (CSS for CSS!! :) ).
+    Defaults to: 1
 
-    perldoc POE::Component::IRC::Plugin::Syntax::Highlight::CSS
+   "pastebin_trigger"
+        ->new( pastebin_trigger => '[irc_to_pastebin]', );
 
-You can also look for information at:
+    Optional. You'll need to read the docs for
+    POE::Component::IRC::Plugin::OutputToPastebin to understand this one..
+    or just leave everything at defaults and forget about it...
 
-    RT, CPAN's request tracker
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-IRC-Plugin-Syntax-Highlight-CSS
+    This is the "trigger" or "tag" that
+    POE::Component::IRC::Plugin::OutputToPastebin looks for; you can set it
+    via "trigger" argument in POE::Component::IRC::Plugin::OutputToPastebin.
 
-    AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/POE-Component-IRC-Plugin-Syntax-Highlight-CSS
+   "auto"
+        ->new( auto => 0 );
 
-    CPAN Ratings
-        http://cpanratings.perl.org/d/POE-Component-IRC-Plugin-Syntax-Highlight-CSS
+    Optional. Takes either true or false values, specifies whether or not
+    the plugin should auto respond to requests. When the "auto" argument is
+    set to a true value plugin will respond to the requesting person with
+    the results automatically. When the "auto" argument is set to a false
+    value plugin will not respond and you will have to listen to the events
+    emited by the plugin to retrieve the results (see EMITED EVENTS section
+    and "response_event" argument for details). Defaults to: 1.
 
-    Search CPAN
-        http://search.cpan.org/dist/POE-Component-IRC-Plugin-Syntax-Highlight-CSS
+   "response_event"
+        ->new( response_event => 'event_name_to_recieve_results' );
 
+    Optional. Takes a scalar string specifying the name of the event to emit
+    when the results of the request are ready. See EMITED EVENTS section for
+    more information. Defaults to: "irc_css_highlighter"
 
-COPYRIGHT AND LICENCE
+   "banned"
+        ->new( banned => [ qr/aol\.com$/i ] );
 
-Copyright (C) 2008 'Zoffix
+    Optional. Takes an arrayref of regexes as a value. If the usermask of
+    the person (or thing) making the request matches any of the regexes
+    listed in the "banned" arrayref, plugin will ignore the request.
+    Defaults to: "[]" (no bans are set).
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+   "root"
+        ->new( root => [ qr/\Qjust.me.and.my.friend.net\E$/i ] );
+
+    Optional. As opposed to "banned" argument, the "root" argument allows
+    access only to people whose usermasks match any of the regexen you
+    specify in the arrayref the argument takes as a value. By default: it is
+    not specified. Note: as opposed to "banned" specifying an empty arrayref
+    to "root" argument will restrict access to everyone.
+
+   "trigger"
+        ->new( trigger => qr/^highlight\s*css\s+(?=\S)/i );
+
+    Optional. Takes a regex as an argument. Messages matching this regex,
+    irrelevant of the type of the message, will be considered as requests.
+    See also addressed option below which is enabled by default as well as
+    trigggers option which is more specific. Note: the trigger will be
+    removed from the message, therefore make sure your trigger doesn't match
+    the actual data (the URI) that needs to be processed. Defaults to:
+    "qr/^highlight\s*css\s+(?=\S)/i"
+
+   "triggers"
+        ->new( triggers => {
+                public  => qr/^highlight\s*css\s+(?=\S)/i,
+                notice  => qr/^highlight\s*css\s+(?=\S)/i,
+                privmsg => qr/^highlight\s*css\s+(?=\S)/i,
+            }
+        );
+
+    Optional. Takes a hashref as an argument which may contain either one or
+    all of keys public, notice and privmsg which indicates the type of
+    messages: channel messages, notices and private messages respectively.
+    The values of those keys are regexes of the same format and meaning as
+    for the "trigger" argument (see above). Messages matching this regex
+    will be considered as requests. The difference is that only messages of
+    type corresponding to the key of "triggers" hashref are checked for the
+    trigger. Note: the "trigger" will be matched irrelevant of the setting
+    in "triggers", thus you can have one global and specific "local"
+    triggers. See also addressed option below which is enabled by default as
+    well as trigggers option which is more specific. Note: the trigger will
+    be removed from the message, therefore make sure your trigger doesn't
+    match the actual data that needs to be processed. Defaults to:
+    "qr/^highlight\s*css\s+(?=\S)/i"
+
+   "addressed"
+        ->new( addressed => 1 );
+
+    Optional. Takes either true or false values. When set to a true value
+    all the public messages must be *addressed to the bot*. In other words,
+    if your bot's nickname is "Nick" and your trigger is "qr/^trig\s+/" you
+    would make the request by saying "Nick, trig EXAMPLE". When addressed
+    mode is turned on, the bot's nickname, including any whitespace and
+    common punctuation character will be removed before matching the
+    "trigger" (see above). When "addressed" argument it set to a false
+    value, public messages will only have to match "trigger" regex in order
+    to make a request. Note: this argument has no effect on "/notice" and
+    "/msg" requests. Defaults to: 1
+
+   "listen_for_input"
+        ->new( listen_for_input => [ qw(public  notice  privmsg) ] );
+
+    Optional. Takes an arrayref as a value which can contain any of the
+    three elements, namely "public", "notice" and "privmsg" which indicate
+    which kind of input plugin should respond to. When the arrayref contains
+    "public" element, plugin will respond to requests sent from messages in
+    public channels (see "addressed" argument above for specifics). When the
+    arrayref contains "notice" element plugin will respond to requests sent
+    to it via "/notice" messages. When the arrayref contains "privmsg"
+    element, the plugin will respond to requests sent to it via "/msg"
+    (private messages). You can specify any of these. In other words,
+    setting "( listen_for_input =" [ qr(notice privmsg) ] )> will enable
+    functionality only via "/notice" and "/msg" messages. Defaults to: "[
+    qw(public notice privmsg) ]"
+
+   "eat"
+        ->new( eat => 0 );
+
+    Optional. If set to a false value plugin will return a "PCI_EAT_NONE"
+    after responding. If eat is set to a true value, plugin will return a
+    "PCI_EAT_ALL" after responding. See POE::Component::IRC::Plugin
+    documentation for more information if you are interested. Defaults to: 1
+
+   "debug"
+        ->new( debug => 1 );
+
+    Optional. Takes either a true or false value. When "debug" argument is
+    set to a true value some debugging information will be printed out. When
+    "debug" argument is set to a false value no debug info will be printed.
+    Defaults to: 0.
+
+EMITED EVENTS
+  "response_event"
+        $VAR1 = {
+            'out' => 'Zoffix,  see [irc_to_pastebin]<style type="text/css">...', # shortened for brevity
+            '_channel' => '#zofbot',
+            '_type' => 'public',
+            '_who' => 'Zoffix!n=Zoffix@unaffiliated/zoffix',
+            '_message' => 'CSSHighlighterBo, highlight css http://zoffix.com/main.css',
+            'uri' => 'http://zoffix.com/main.css'
+        };
+
+        $VAR1 = {
+            'out' => 'Zoffix, 404 Not Found',
+            '_channel' => '#zofbot',
+            '_type' => 'public',
+            '_who' => 'Zoffix!n=Zoffix@unaffiliated/zoffix',
+            '_message' => 'CSSHighlighterBo, highlight css http://zoffix.com/not_main.css',
+            'uri' => 'http://zoffix.com/not_main.css',
+            'error' => '404 Not Found'
+        };
+
+    The event handler set up to handle the event, name of which you've
+    specified in the "response_event" argument to the constructor (it
+    defaults to "irc_css_highlighter") will recieve input every time request
+    is completed. The input will come in $_[ARG0] on a form of a hashref.
+    The possible keys/values of that hashrefs are as follows:
+
+   "out"
+        { 'out' => 'Zoffix,  see [irc_to_pastebin]<style type="text/css">...', # shortened for brevity }
+
+    The "out" key will contain what would be sent to IRC when "auto" mode is
+    turned on before POE::Component::IRC::Plugin::OutputToPastebin plugin
+    would pick it up and pastebin.
+
+   "uri"
+        { 'uri' => 'http://zoffix.com/main.css' }
+
+    The "uri" key will contain the URI that was accessed to get CSS code (or
+    error message)
+
+   "error"
+        { 'error' => '404 Not Found' }
+
+    If an error occured during the retrieval of CSS code then the "error"
+    key will be present and its value will be a human parsable error message
+    explaining the failure.
+
+   "_who"
+        { '_who' => 'Zoffix!n=Zoffix@unaffiliated/zoffix', }
+
+    The "_who" key will contain the user mask of the user who sent the
+    request.
+
+   "_message"
+        { '_message' => 'CSSHighlighterBo, highlight css http://zoffix.com/main.css', }
+
+    The "_message" key will contain the actual message which the user sent;
+    that is before the trigger is stripped.
+
+   "_type"
+        { '_type' => 'public', }
+
+    The "_type" key will contain the "type" of the message the user have
+    sent. This will be either "public", "privmsg" or "notice".
+
+   "_channel"
+        { '_channel' => '#zofbot', }
+
+    The "_channel" key will contain the name of the channel where the
+    message originated. This will only make sense if "_type" key contains
+    "public".
+
+AUTHOR
+    'Zoffix, "<'zoffix at cpan.org'>" (<http://zoffix.com/>,
+    <http://haslayout.net/>, <http://zofdesign.com/>)
+
+BUGS
+    Please report any bugs or feature requests to
+    "bug-poe-component-irc-plugin-syntax-highlight-css at rt.cpan.org", or
+    through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=POE-Component-IRC-Plugin
+    -Syntax-Highlight-CSS>. I will be notified, and then you'll
+    automatically be notified of progress on your bug as I make changes.
+
+SEE ALSO
+    POE::Component::IRC, Syntax::Highlight::CSS
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
+
+        perldoc POE::Component::IRC::Plugin::Syntax::Highlight::CSS
+
+    You can also look for information at:
+
+    *   RT: CPAN's request tracker
+
+        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-IRC-Plugin-S
+        yntax-Highlight-CSS>
+
+    *   AnnoCPAN: Annotated CPAN documentation
+
+        <http://annocpan.org/dist/POE-Component-IRC-Plugin-Syntax-Highlight-
+        CSS>
+
+    *   CPAN Ratings
+
+        <http://cpanratings.perl.org/d/POE-Component-IRC-Plugin-Syntax-Highl
+        ight-CSS>
+
+    *   Search CPAN
+
+        <http://search.cpan.org/dist/POE-Component-IRC-Plugin-Syntax-Highlig
+        ht-CSS>
+
+COPYRIGHT & LICENSE
+    Copyright 2008 'Zoffix, all rights reserved.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
